@@ -1,0 +1,10 @@
+{
+  "history": [
+    {"wpm": 65, "keyHoldTimeMs": 45, "keyDelayMs": 120, "backspaceCount": 2},
+    {"wpm": 62, "keyHoldTimeMs": 48, "keyDelayMs": 130, "backspaceCount": 1},
+    {"wpm": 64, "keyHoldTimeMs": 46, "keyDelayMs": 125, "backspaceCount": 3},
+    {"wpm": 63, "keyHoldTimeMs": 47, "keyDelayMs": 122, "backspaceCount": 2},
+    {"wpm": 66, "keyHoldTimeMs": 44, "keyDelayMs": 118, "backspaceCount": 1}
+  ],
+  "candidate": {"wpm": 60, "keyHoldTimeMs": 50, "keyDelayMs": 140, "backspaceCount": 2}
+}
