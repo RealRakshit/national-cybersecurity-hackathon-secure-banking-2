@@ -3,6 +3,7 @@ const path = require('path');
 
 const TYPING_PROFILE_LIMIT = 5;
 const predictorPath = path.resolve(__dirname, '..', 'ml', 'predict_typing_behavior.py');
+const PREDICTOR_TIMEOUT_MS = Number(process.env.TYPING_PREDICTOR_TIMEOUT_MS || 15000);
 
 const clampRounded = (value, decimalPlaces = 2) => Number(Number(value).toFixed(decimalPlaces));
 const finiteInRange = (value, minimum, maximum) => Number.isFinite(value)
@@ -45,7 +46,7 @@ const evaluateTypingBehavior = (history, candidate) => new Promise((resolve, rej
   });
   let stdout = '';
   let stderr = '';
-  const timeout = setTimeout(() => child.kill(), 5000);
+  const timeout = setTimeout(() => child.kill(), PREDICTOR_TIMEOUT_MS);
 
   child.stdout.on('data', (chunk) => {
     stdout += chunk;

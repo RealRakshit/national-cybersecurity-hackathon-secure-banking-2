@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLanguage } from '../i18n';
 
 const ShapePad = ({ challenge, onTrace }) => {
+  const { t, td } = useLanguage();
   const canvasRef = useRef(null);
   const drawingRef = useRef(false);
   const [points, setPoints] = useState([]);
@@ -62,9 +64,9 @@ const ShapePad = ({ challenge, onTrace }) => {
 
   return (
     <div className="shape-pad">
-      <p>{challenge.prompt}</p>
+      <p>{td(challenge.prompt)}</p>
       <canvas
-        aria-label={challenge.prompt}
+        aria-label={td(challenge.prompt)}
         ref={canvasRef}
         width="520"
         height="220"
@@ -74,8 +76,8 @@ const ShapePad = ({ challenge, onTrace }) => {
         onPointerCancel={end}
       />
       <div className="button-row compact-row">
-        <button type="button" className="quiet-button" onClick={clear}>Clear drawing</button>
-        <span>{points.length ? `${points.length} trace points captured` : 'Draw in one stroke.'}</span>
+        <button type="button" className="quiet-button" onClick={clear}>{t('clearDrawing')}</button>
+        <span>{points.length ? t('traceCaptured', { count: points.length }) : t('drawOneStroke')}</span>
       </div>
     </div>
   );

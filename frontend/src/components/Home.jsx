@@ -1,41 +1,36 @@
 import { Link } from 'react-router-dom';
+import { useLanguage } from '../i18n';
 
-const Home = () => (
-  <>
-    <section className="hero-card">
-      <p className="hero-tag">WELCOME TO SHIELD BANKING</p>
+const Home = () => {
+  const { t } = useLanguage();
 
-      <h1>
-        Safe digital banking with face authentication and smart transaction
-        protection.
-      </h1>
+  return (
+    <>
+      <section className="hero-card">
+        <p className="hero-tag">{t('heroTag')}</p>
 
-      <p className="hero-text">
-        Access your account, send payments, and monitor your session security
-        in one clean dashboard.
-      </p>
+        <h1>{t('heroTitle')}</h1>
 
-      <div className="hero-actions">
-        <Link to="/signup" className="hero-button">
-          Create account
-        </Link>
+        <p className="hero-text">{t('heroText')}</p>
 
-        <Link to="/login" className="hero-button secondary">
-          Secure login
-        </Link>
-      </div>
-    </section>
+        <div className="hero-actions">
+          <Link to="/signup" className="hero-button">
+            {t('createAccount')}
+          </Link>
 
-    <section className="info-card">
-      <h2>How it works</h2>
+          <Link to="/login" className="hero-button secondary">
+            {t('secureLogin')}
+          </Link>
+        </div>
+      </section>
 
-      <p>
-        Enroll your face profile and password, then log in securely to manage
-        transfers and balances. Your session is reviewed continuously to detect
-        suspicious activity.
-      </p>
-    </section>
-  </>
-);
+      <section className="info-card">
+        <h2>{t('howItWorks')}</h2>
+
+        <p>{t('howItWorksText')}</p>
+      </section>
+    </>
+  );
+};
 
 export default Home;

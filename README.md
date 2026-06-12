@@ -71,6 +71,8 @@ The frontend is configured to proxy `/api` requests to `http://localhost:5000`.
 -and drawng capcha during transaction
 -queing of payment above 10000 or above 10000 cumulative transaction per hour
 -remote access flag manual rn
+-multilingual support(hindi)
+-otp verification
 
 
 

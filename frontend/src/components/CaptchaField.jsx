@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { getCaptcha } from '../api/auth';
+import { useLanguage } from '../i18n';
 
 const CaptchaField = ({ answer, onAnswer, onChallenge, refreshKey }) => {
+  const { t, td } = useLanguage();
   const [prompt, setPrompt] = useState('Loading challenge...');
   const [loading, setLoading] = useState(false);
 
@@ -27,7 +29,7 @@ const CaptchaField = ({ answer, onAnswer, onChallenge, refreshKey }) => {
   return (
     <div className="challenge-field">
       <label>
-        CAPTCHA: {prompt}
+        {t('captcha')}: {td(prompt)}
         <input
           inputMode="numeric"
           pattern="[0-9]*"
@@ -37,7 +39,7 @@ const CaptchaField = ({ answer, onAnswer, onChallenge, refreshKey }) => {
         />
       </label>
       <button type="button" className="quiet-button" onClick={refresh} disabled={loading}>
-        New challenge
+        {t('newChallenge')}
       </button>
     </div>
   );

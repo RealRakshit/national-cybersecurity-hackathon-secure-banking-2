@@ -76,7 +76,8 @@ nav,
 }
 
 nav a,
-.link-button {
+.link-button,
+.language-toggle {
   display: inline-flex;
   align-items: center;
   text-decoration: none;
@@ -90,6 +91,10 @@ nav a,
     #6b1fa6,
     #8e24aa
   );
+}
+
+.language-toggle {
+  font-weight: 700;
 }
 
 .page-card,

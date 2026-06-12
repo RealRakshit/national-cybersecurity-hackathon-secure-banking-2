@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { logout } from '../api/auth';
 import { getBankingDashboard } from '../api/banking';
 import useIdleSession from '../auth/useIdleSession';
+import { useLanguage } from '../i18n';
 
 const formatMoney = (cents) => new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -20,6 +21,7 @@ const formatDateTime = (date) =>
   });
 
 const Dashboard = () => {
+  const { t, td } = useLanguage();
   const navigate = useNavigate();
   const [dashboard, setDashboard] = useState(null);
   const [message, setMessage] = useState('Loading account...');
@@ -55,36 +57,36 @@ const Dashboard = () => {
     <section className="bank-view">
       <div className="balance-panel">
         <div>
-          <p className="eyebrow">Available balance</p>
+          <p className="eyebrow">{t('availableBalance')}</p>
           <h2>{formatMoney(dashboard?.user.balanceCents)}</h2>
-          <p>{dashboard ? `Account holder: ${dashboard.user.username}` : message}</p>
+          <p>{dashboard ? `${t('accountHolder')}: ${dashboard.user.username}` : td(message)}</p>
         </div>
         <div className="button-row dashboard-actions">
-          <Link className="link-button" to="/transactions">Transactions</Link>
-          <button type="button" className="quiet-button" onClick={handleLogout}>Logout</button>
+          <Link className="link-button" to="/transactions">{t('transactions')}</Link>
+          <button type="button" className="quiet-button" onClick={handleLogout}>{t('logout')}</button>
         </div>
       </div>
 
       <div className="ledger-panel">
-        <h3>Latest activity</h3>
+        <h3>{t('latestActivity')}</h3>
         <div className="transaction-list">
           {dashboard?.transactions?.length ? dashboard.transactions.slice(0, 5).map((transaction) => (
             <article className="transaction-row" key={transaction.id}>
               <div>
-  <strong>{transaction.sender} to {transaction.recipient}</strong>
+  <strong>{transaction.sender} {t('to')} {transaction.recipient}</strong>
 
   <small className="transaction-time">
     {formatDateTime(transaction.createdAt)}
   </small>
 
-  <p>{transaction.note || 'Transfer'}</p>
+  <p>{transaction.note || t('transfer')}</p>
 </div>
               <div className="amount-cell">
                 <strong>{formatMoney(transaction.amountCents)}</strong>
-                <span className={`status-pill ${transaction.status}`}>{transaction.status}</span>
+                <span className={`status-pill ${transaction.status}`}>{t(transaction.status)}</span>
               </div>
             </article>
-          )) : <p className="muted-copy">No transactions recorded yet.</p>}
+          )) : <p className="muted-copy">{t('noTransactions')}</p>}
         </div>
       </div>
     </section>

@@ -6,6 +6,7 @@ backend/node_modules
 backend/.env
 dist
 .vite
+.vite-dev.*
 npm-debug.log*
 yarn-error.log*
 __pycache__/

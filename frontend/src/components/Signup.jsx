@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { sendOtp, signup } from '../api/auth';
 import { getFaceDescriptor, loadFaceModels } from '../face/faceUtils';
+import { useLanguage } from '../i18n';
 import CaptchaField from './CaptchaField';
 
 const Signup = () => {
+  const { t, td } = useLanguage();
   const videoRef = useRef(null);
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [isCameraOn, setIsCameraOn] = useState(false);
@@ -111,36 +113,36 @@ const Signup = () => {
 
   return (
     <div className="page-card">
-      <h2>Sign Up with Face Recognition</h2>
-      <p>Start your webcam, capture your face, then submit your sign up details.</p>
+      <h2>{t('signupTitle')}</h2>
+      <p>{t('signupIntro')}</p>
 
       <div className="video-box">
         <video ref={videoRef} width="360" height="270" autoPlay muted className="camera-video" />
       </div>
 
       <div className="button-row">
-        <button onClick={startCamera} type="button">Start Camera</button>
-        <button onClick={captureFace} type="button" disabled={!isCameraOn || !modelsLoaded}>Capture Face</button>
+        <button onClick={startCamera} type="button">{t('startCamera')}</button>
+        <button onClick={captureFace} type="button" disabled={!isCameraOn || !modelsLoaded}>{t('captureFace')}</button>
       </div>
 
       <form className="form-card" onSubmit={handleSubmit}>
         <label>
-          Username
+          {t('username')}
           <input value={username} onChange={(event) => setUsername(event.target.value)} required />
         </label>
         <label>
-          Email
+          {t('email')}
           <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
         </label>
         <div className="button-row">
-          <button onClick={handleSendOtp} type="button" disabled={otpSending}>{otpSending ? 'Sending...' : 'Send verification code'}</button>
+          <button onClick={handleSendOtp} type="button" disabled={otpSending}>{otpSending ? t('sending') : t('sendVerificationCode')}</button>
         </div>
         <label>
-          Verification Code
+          {t('verificationCode')}
           <input value={otp} onChange={(event) => setOtp(event.target.value)} required />
         </label>
         <label>
-          Password
+          {t('password')}
           <input
             type="password"
             minLength="12"
@@ -155,12 +157,12 @@ const Signup = () => {
           onChallenge={setCaptchaId}
           refreshKey={captchaRefreshKey}
         />
-        <button type="submit" disabled={loading}>{loading ? 'Signing up...' : 'Sign Up'}</button>
+        <button type="submit" disabled={loading}>{loading ? t('signingUp') : t('signup')}</button>
       </form>
 
       <div className="status-box">
-        <strong>Status:</strong>
-        <p>{message}</p>
+        <strong>{t('status')}</strong>
+        <p>{td(message)}</p>
       </div>
     </div>
   );

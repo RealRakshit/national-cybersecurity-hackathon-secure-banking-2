@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../api/auth';
 import { getFaceDescriptor, loadFaceModels } from '../face/faceUtils';
+import { useLanguage } from '../i18n';
 import CaptchaField from './CaptchaField';
 
 const Login = () => {
+  const { t, td } = useLanguage();
   const videoRef = useRef(null);
   const typingSessionRef = useRef(null);
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -150,25 +152,25 @@ const Login = () => {
 
   return (
     <div className="page-card">
-      <h2>Login with Face Recognition</h2>
-      <p>Use your webcam to verify your face against the enrolled profile.</p>
+      <h2>{t('loginTitle')}</h2>
+      <p>{t('loginIntro')}</p>
 
       <div className="video-box">
         <video ref={videoRef} width="360" height="270" autoPlay muted className="camera-video" />
       </div>
 
       <div className="button-row">
-        <button onClick={startCamera} type="button">Start Camera</button>
-        <button onClick={captureFace} type="button" disabled={!isCameraOn || !modelsLoaded}>Capture Face</button>
+        <button onClick={startCamera} type="button">{t('startCamera')}</button>
+        <button onClick={captureFace} type="button" disabled={!isCameraOn || !modelsLoaded}>{t('captureFace')}</button>
       </div>
 
       <form className="form-card" onSubmit={handleSubmit}>
         <label>
-          Username
+          {t('username')}
           <input value={username} onChange={(event) => setUsername(event.target.value)} required />
         </label>
         <label>
-          Password
+          {t('password')}
           <input
             type="password"
             value={password}
@@ -187,12 +189,12 @@ const Login = () => {
           onChallenge={setCaptchaId}
           refreshKey={captchaRefreshKey}
         />
-        <button type="submit" disabled={loading}>{loading ? 'Logging in...' : 'Login'}</button>
+        <button type="submit" disabled={loading}>{loading ? t('loggingIn') : t('login')}</button>
       </form>
 
       <div className="status-box">
-        <strong>Status:</strong>
-        <p>{message}</p>
+        <strong>{t('status')}</strong>
+        <p>{td(message)}</p>
       </div>
     </div>
   );

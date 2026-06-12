@@ -6,6 +6,7 @@ import {
   sendTransaction,
 } from '../api/banking';
 import useIdleSession from '../auth/useIdleSession';
+import { useLanguage } from '../i18n';
 import ShapePad from './ShapePad';
 
 const formatMoney = (cents) => new Intl.NumberFormat('en-IN', {
@@ -24,6 +25,7 @@ const formatDateTime = (date) =>
   });
 
 const Transactions = () => {
+  const { t, td } = useLanguage();
   const navigate = useNavigate();
   const [dashboard, setDashboard] = useState(null);
   const [recipientUsername, setRecipientUsername] = useState('');
@@ -84,17 +86,17 @@ const Transactions = () => {
     <section className="bank-view">
       <div className="toolbar-line">
         <div>
-          <p className="eyebrow">Transactions</p>
+          <p className="eyebrow">{t('transactions')}</p>
           <h2>{formatMoney(dashboard?.user.balanceCents)}</h2>
         </div>
-        <Link className="link-button" to="/dashboard">Dashboard</Link>
+        <Link className="link-button" to="/dashboard">{t('dashboard')}</Link>
       </div>
 
       <div className="transactions-grid">
         <form className="transfer-panel" onSubmit={handleSubmit}>
-          <h3>Send payment</h3>
+          <h3>{t('sendPayment')}</h3>
           <label>
-            Recipient username
+            {t('recipientUsername')}
             <input
               pattern="[A-Za-z0-9_]{3,24}"
               value={recipientUsername}
@@ -103,7 +105,7 @@ const Transactions = () => {
             />
           </label>
           <label>
-            Recipient email
+            {t('recipientEmail')}
             <input
               type="email"
               value={recipientEmail}
@@ -112,7 +114,7 @@ const Transactions = () => {
             />
           </label>
           <label>
-            Amount
+            {t('amount')}
             <input
               inputMode="decimal"
               value={amount}
@@ -122,41 +124,41 @@ const Transactions = () => {
             />
           </label>
           <label>
-            Note
+            {t('note')}
             <input maxLength="120" value={note} onChange={(event) => setNote(event.target.value)} />
           </label>
 
           {shapeChallenge ? <ShapePad challenge={shapeChallenge} onTrace={setShapeTrace} /> : null}
 
           <button type="submit" disabled={loading || (shapeChallenge && !shapeTrace.length)}>
-            {loading ? 'Processing...' : 'Send payment'}
+            {loading ? t('processing') : t('sendPayment')}
           </button>
-          {message ? <p className="status-copy">{message}</p> : null}
+          {message ? <p className="status-copy">{td(message)}</p> : null}
         </form>
 
         <div className="ledger-panel">
-          <h3>Payment history</h3>
+          <h3>{t('paymentHistory')}</h3>
           <p className="muted-copy">
-            Transfers above {formatMoney(dashboard?.hourlyReviewLimitCents)} or crossing that hourly outflow enter review.
+            {t('reviewNotice', { amount: formatMoney(dashboard?.hourlyReviewLimitCents) })}
           </p>
           <div className="transaction-list">
             {dashboard?.transactions?.length ? dashboard.transactions.map((transaction) => (
               <article className="transaction-row" key={transaction.id}>
                 <div>
-  <strong>{transaction.sender} to {transaction.recipient}</strong>
+  <strong>{transaction.sender} {t('to')} {transaction.recipient}</strong>
 
   <small className="transaction-time">
     {formatDateTime(transaction.createdAt)}
   </small>
 
-  <p>{transaction.note || 'Transfer'}</p>
+  <p>{transaction.note || t('transfer')}</p>
 </div>
                 <div className="amount-cell">
                   <strong>{formatMoney(transaction.amountCents)}</strong>
-                  <span className={`status-pill ${transaction.status}`}>{transaction.status}</span>
+                  <span className={`status-pill ${transaction.status}`}>{t(transaction.status)}</span>
                 </div>
               </article>
-            )) : <p className="muted-copy">No transfers yet.</p>}
+            )) : <p className="muted-copy">{t('noTransfers')}</p>}
           </div>
         </div>
       </div>
