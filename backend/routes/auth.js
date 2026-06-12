@@ -1,5 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const nodemailer = require('nodemailer');
 const User = require('../models/User');
 const Session = require('../models/Session');
 const {
@@ -22,6 +23,7 @@ const {
 const router = express.Router();
 const USERNAME_PATTERN = /^[A-Za-z0-9_]{3,24}$/;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const pendingEmailOtps = new Map();
 
 const computeDistance = (desc1, desc2) => {
   if (!desc1 || !desc2 || desc1.length !== desc2.length) return Infinity;
@@ -38,10 +40,56 @@ const validPassword = (password) => typeof password === 'string'
   && /[0-9]/.test(password);
 const cleanUsername = (username) => String(username || '').trim();
 const cleanEmail = (email) => String(email || '').trim().toLowerCase();
+const generateOtp = () => `${Math.floor(100000 + Math.random() * 900000)}`;
+const isValidOtp = (otp) => typeof otp === 'string' && /^\d{6}$/.test(otp.trim());
 const cleanFaceDescriptor = (faceDescriptor) => {
   if (!Array.isArray(faceDescriptor) || faceDescriptor.length !== 128) return null;
   const cleaned = faceDescriptor.map(Number);
   return cleaned.every((value) => Number.isFinite(value) && Math.abs(value) <= 2) ? cleaned : null;
+};
+const storePendingEmailOtp = async (email, otp) => {
+  pendingEmailOtps.set(email, {
+    otpHash: await bcrypt.hash(otp, 4),
+    expiresAt: Date.now() + 5 * 60 * 1000,
+  });
+};
+const verifyPendingEmailOtp = async (email, otp) => {
+  const record = pendingEmailOtps.get(email);
+  if (!record) return false;
+  if (Date.now() > record.expiresAt) {
+    pendingEmailOtps.delete(email);
+    return false;
+  }
+  const match = await bcrypt.compare(String(otp), record.otpHash);
+  if (match) pendingEmailOtps.delete(email);
+  return match;
+};
+const sendEmailOtp = async (email, otp) => {
+  const EMAIL_USER = process.env.EMAIL_USER;
+  const EMAIL_PASS = process.env.EMAIL_PASS;
+  const EMAIL_FROM = process.env.EMAIL_FROM || EMAIL_USER;
+
+  if (!EMAIL_USER || !EMAIL_PASS) {
+    console.log(`[EMAIL-OTP] ${otp} for ${email}`);
+    return { sent: false, fallback: true };
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: EMAIL_USER,
+      pass: EMAIL_PASS,
+    },
+  });
+
+  const info = await transporter.sendMail({
+    from: EMAIL_FROM,
+    to: email,
+    subject: 'Your signup verification code',
+    text: `Your verification code is ${otp}. It expires in 5 minutes.`,
+  });
+
+  return { sent: true, fallback: false, messageId: info.messageId };
 };
 
 router.get('/captcha', async (req, res) => {
@@ -53,10 +101,36 @@ router.get('/captcha', async (req, res) => {
   }
 });
 
+router.post('/send-otp', throttleAuthByIp, async (req, res) => {
+  try {
+    const email = cleanEmail(req.body.email);
+    if (!EMAIL_PATTERN.test(email) || email.length > 254) {
+      return res.status(400).json({ message: 'Enter a valid email address.' });
+    }
+
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ message: 'Email already registered.' });
+    }
+
+    const otp = generateOtp();
+    await storePendingEmailOtp(email, otp);
+    const result = await sendEmailOtp(email, otp);
+    if (result.fallback) {
+      return res.json({ message: `Verification code sent. For local testing, use: ${otp}` });
+    }
+    return res.json({ message: 'Verification code sent to your email.' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Unable to send verification code.' });
+  }
+});
+
 router.post('/signup', throttleAuthByIp, async (req, res) => {
   try {
     const username = cleanUsername(req.body.username);
     const email = cleanEmail(req.body.email);
+    const otp = String(req.body.otp || '').trim();
     const { password, captchaId, captchaAnswer } = req.body;
     const faceDescriptor = cleanFaceDescriptor(req.body.faceDescriptor);
     if (!USERNAME_PATTERN.test(username)) {
@@ -68,12 +142,18 @@ router.post('/signup', throttleAuthByIp, async (req, res) => {
     if (!validPassword(password)) {
       return res.status(400).json({ message: 'Password must be 12-72 characters with letters and numbers.' });
     }
+    if (!isValidOtp(otp)) {
+      return res.status(400).json({ message: 'Enter the 6-digit verification code from your email.' });
+    }
     if (!faceDescriptor) {
       return res.status(400).json({ message: 'A valid face descriptor is required.' });
     }
     if (!await verifyCaptcha(captchaId, captchaAnswer)) {
       recordAuthFailure(req);
       return res.status(400).json({ message: 'CAPTCHA challenge expired or was incorrect.' });
+    }
+    if (!await verifyPendingEmailOtp(email, otp)) {
+      return res.status(400).json({ message: 'Verification code is invalid or has expired.' });
     }
 
     const existing = await User.findOne({ $or: [{ username }, { email }] });

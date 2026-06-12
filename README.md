@@ -49,7 +49,8 @@ The frontend is configured to proxy `/api` requests to `http://localhost:5000`.
 
 - New accounts start with a zero balance. Funds should be added by a database/admin flow before posted transfers can debit the account.
 - Posted payments use a MongoDB multi-document transaction. Use a MongoDB deployment that supports transactions.
-- Payments above 10000, or payments that push the sender's last-hour outflow above 10000, enter the review queue and do not change balances yet.
+- Payments above 10000, or payments that push the sender's last-hour outflow above 10000, enter the review queue and do not change balances yet.in mongo db admin has to manually do "approved" for payment to show up
+
 - To approve a queued payment from MongoDB, update its transaction `status` from `queued` to `approved`. The backend settlement worker sees approved rows and atomically changes balances before setting the transaction to `posted`.
 - Approved payment records must keep their original `sender`, `recipient`, and integer `amountCents` fields. Legacy rows with only `user`, `type`, and `amount` are not payment-transfer queue records and are ignored by settlement.
 - If settlement writes `settlementError`, fix the payment-transfer record and clear `settlementError` before retrying.
@@ -74,3 +75,4 @@ The frontend is configured to proxy `/api` requests to `http://localhost:5000`.
 
 
 mongodb-rakereddit@gmail.com
+testgmail1919@gmail.com->app password->shield-banking->password:buxqpszjabtjidxn

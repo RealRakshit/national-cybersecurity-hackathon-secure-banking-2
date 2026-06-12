@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signup } from '../api/auth';
+import { sendOtp, signup } from '../api/auth';
 import { getFaceDescriptor, loadFaceModels } from '../face/faceUtils';
 import CaptchaField from './CaptchaField';
 
@@ -11,12 +11,14 @@ const Signup = () => {
   const [message, setMessage] = useState('Loading face models...');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
   const [faceDescriptor, setFaceDescriptor] = useState(null);
   const [captchaId, setCaptchaId] = useState('');
   const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [captchaRefreshKey, setCaptchaRefreshKey] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -58,10 +60,31 @@ const Signup = () => {
     }
   };
 
+  const handleSendOtp = async () => {
+    if (!email.trim()) {
+      setMessage('Enter your email before requesting a verification code.');
+      return;
+    }
+
+    try {
+      setOtpSending(true);
+      const { data } = await sendOtp({ email });
+      setMessage(data.message);
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Unable to send verification code.');
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!faceDescriptor) {
       setMessage('Please capture your face before signing up.');
+      return;
+    }
+    if (!otp.trim()) {
+      setMessage('Please enter the 6-digit verification code from your email.');
       return;
     }
 
@@ -70,6 +93,7 @@ const Signup = () => {
       const { data } = await signup({
         username,
         email,
+        otp,
         password,
         faceDescriptor,
         captchaId,
@@ -107,6 +131,13 @@ const Signup = () => {
         <label>
           Email
           <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
+        </label>
+        <div className="button-row">
+          <button onClick={handleSendOtp} type="button" disabled={otpSending}>{otpSending ? 'Sending...' : 'Send verification code'}</button>
+        </div>
+        <label>
+          Verification Code
+          <input value={otp} onChange={(event) => setOtp(event.target.value)} required />
         </label>
         <label>
           Password

@@ -8,6 +8,7 @@ const api = axios.create({
 
 export const signup = (payload) => api.post('/signup', payload);
 export const login = (payload) => api.post('/login', payload);
+export const sendOtp = (payload) => api.post('/send-otp', payload);
 export const getCaptcha = () => api.get('/captcha');
 export const recordActivity = () => api.post('/activity');
 export const logout = () => api.post('/logout');
