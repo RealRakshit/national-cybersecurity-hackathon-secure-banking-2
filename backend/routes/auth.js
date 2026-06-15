@@ -42,10 +42,44 @@ const cleanUsername = (username) => String(username || '').trim();
 const cleanEmail = (email) => String(email || '').trim().toLowerCase();
 const generateOtp = () => `${Math.floor(100000 + Math.random() * 900000)}`;
 const isValidOtp = (otp) => typeof otp === 'string' && /^\d{6}$/.test(otp.trim());
+const cleanFaceDescriptors = (faceDescriptors) => {
+  if (
+    !Array.isArray(faceDescriptors)
+    || faceDescriptors.length < 3
+  ) {
+    return null;
+  }
+
+  const cleanedDescriptors = faceDescriptors.map((descriptor) => {
+    if (!Array.isArray(descriptor) || descriptor.length !== 128) {
+      return null;
+    }
+
+    const cleaned = descriptor.map(Number);
+
+    return cleaned.every(
+      (value) => Number.isFinite(value) && Math.abs(value) <= 2,
+    )
+      ? cleaned
+      : null;
+  });
+
+  return cleanedDescriptors.every(Boolean)
+    ? cleanedDescriptors
+    : null;
+};
 const cleanFaceDescriptor = (faceDescriptor) => {
-  if (!Array.isArray(faceDescriptor) || faceDescriptor.length !== 128) return null;
+  if (!Array.isArray(faceDescriptor) || faceDescriptor.length !== 128) {
+    return null;
+  }
+
   const cleaned = faceDescriptor.map(Number);
-  return cleaned.every((value) => Number.isFinite(value) && Math.abs(value) <= 2) ? cleaned : null;
+
+  return cleaned.every(
+    (value) => Number.isFinite(value) && Math.abs(value) <= 2,
+  )
+    ? cleaned
+    : null;
 };
 const storePendingEmailOtp = async (email, otp) => {
   pendingEmailOtps.set(email, {
@@ -132,7 +166,9 @@ router.post('/signup', throttleAuthByIp, async (req, res) => {
     const email = cleanEmail(req.body.email);
     const otp = String(req.body.otp || '').trim();
     const { password, captchaId, captchaAnswer } = req.body;
-    const faceDescriptor = cleanFaceDescriptor(req.body.faceDescriptor);
+    const faceDescriptors = cleanFaceDescriptors(
+  req.body.faceDescriptors,
+);
     if (!USERNAME_PATTERN.test(username)) {
       return res.status(400).json({ message: 'Username must be 3-24 letters, numbers, or underscores.' });
     }
@@ -145,9 +181,11 @@ router.post('/signup', throttleAuthByIp, async (req, res) => {
     if (!isValidOtp(otp)) {
       return res.status(400).json({ message: 'Enter the 6-digit verification code from your email.' });
     }
-    if (!faceDescriptor) {
-      return res.status(400).json({ message: 'A valid face descriptor is required.' });
-    }
+    if (!faceDescriptors) {
+  return res.status(400).json({
+    message: 'Three valid face descriptors are required.',
+  });
+}
     if (!await verifyCaptcha(captchaId, captchaAnswer)) {
       recordAuthFailure(req);
       return res.status(400).json({ message: 'CAPTCHA challenge expired or was incorrect.' });
@@ -162,7 +200,7 @@ router.post('/signup', throttleAuthByIp, async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = new User({ username, email, password: hashedPassword, faceDescriptor });
+    const user = new User({ username, email, password: hashedPassword, faceDescriptors });
     await user.save();
     clearAuthFailures(req);
 
@@ -202,12 +240,30 @@ router.post('/login', throttleAuthByIp, async (req, res) => {
       return res.status(401).json({ message: 'Invalid username or password.' });
     }
 
-    const distance = computeDistance(user.faceDescriptor, faceDescriptor);
-    const threshold = 0.6;
-    if (distance > threshold) {
-      recordAuthFailure(req);
-      return res.status(401).json({ message: 'Face recognition failed. Try again with a clearer view.' });
-    }
+    const threshold = 0.45;
+
+const distances = user.faceDescriptors.map(
+  (storedDescriptor) => computeDistance(
+    storedDescriptor,
+    faceDescriptor,
+  ),
+);
+
+const bestDistance = Math.min(...distances);
+
+const confidence = Math.max(
+  0,
+  Math.round((1 - bestDistance / threshold) * 100),
+);
+
+if (bestDistance > threshold) {
+  recordAuthFailure(req);
+
+  return res.status(401).json({
+    message:
+      'Face recognition failed. Try again with a clearer view.',
+  });
+}
 
     const typingHistory = (user.typingProfiles || []).slice(0, TYPING_PROFILE_LIMIT);
     let typingResult;
@@ -230,7 +286,14 @@ router.post('/login', throttleAuthByIp, async (req, res) => {
     await user.save();
     await createSession(user, req, res);
     clearAuthFailures(req);
-    return res.json({ message: 'Login successful.', user: { username: user.username } });
+    return res.json({
+  message: 'Login successful.',
+  user: { username: user.username },
+  faceVerification: {
+    matched: true,
+    confidence,
+  },
+});
   } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Server error during login.' });

@@ -8,6 +8,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mediapipe/camera_utils": "^0.3.1675466862",
+    "@mediapipe/hands": "^0.4.1675469240",
     "@tensorflow/tfjs": "^4.12.0",
     "axios": "^1.6.0",
     "face-api.js": "^0.22.2",

@@ -15,13 +15,20 @@ const Signup = () => {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
-  const [faceDescriptor, setFaceDescriptor] = useState(null);
+  const [faceDescriptors, setFaceDescriptors] = useState([]);
+  const [captureStep, setCaptureStep] = useState(0);
   const [captchaId, setCaptchaId] = useState('');
   const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [captchaRefreshKey, setCaptchaRefreshKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const [otpSending, setOtpSending] = useState(false);
   const navigate = useNavigate();
+
+  const captureInstructions = [
+    'Look straight into the camera.',
+    'Turn your head slightly to the left.',
+    'Turn your head slightly to the right.',
+  ];
 
   useEffect(() => {
     loadFaceModels()
@@ -51,12 +58,24 @@ const Signup = () => {
       setMessage('Face models are still loading. Please wait.');
       return;
     }
-
+    if (captureStep >= 3) {
+      setMessage('Biometric profile already completed.');
+      return;
+    }
     try {
-      setMessage('Detecting face...');
+      setMessage(`Capturing... ${captureInstructions[captureStep]}`);
       const descriptor = await getFaceDescriptor(videoRef.current);
-      setFaceDescriptor(descriptor);
-      setMessage('Face captured successfully. You can now submit your signup.');
+      const updatedDescriptors = [...faceDescriptors, descriptor];
+      setFaceDescriptors(updatedDescriptors);
+      if (captureStep < 2) {
+        setCaptureStep((prev) => prev + 1);
+        setMessage(
+          `✓ Capture ${captureStep + 1}/3 completed.\n${captureInstructions[captureStep + 1]}`
+        );
+      } else {
+        setCaptureStep(3);
+        setMessage('✓ Biometric profile created successfully.\nYou can now submit your signup.');
+      }
     } catch (error) {
       setMessage(error.message);
     }
@@ -67,7 +86,6 @@ const Signup = () => {
       setMessage('Enter your email before requesting a verification code.');
       return;
     }
-
     try {
       setOtpSending(true);
       const { data } = await sendOtp({ email });
@@ -81,15 +99,14 @@ const Signup = () => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!faceDescriptor) {
-      setMessage('Please capture your face before signing up.');
+    if (faceDescriptors.length < 3) {
+      setMessage(`Complete biometric enrollment.\n${3 - faceDescriptors.length} capture(s) remaining.`);
       return;
     }
     if (!otp.trim()) {
       setMessage('Please enter the 6-digit verification code from your email.');
       return;
     }
-
     try {
       setLoading(true);
       const { data } = await signup({
@@ -97,7 +114,7 @@ const Signup = () => {
         email,
         otp,
         password,
-        faceDescriptor,
+        faceDescriptors,
         captchaId,
         captchaAnswer,
       });
@@ -116,54 +133,104 @@ const Signup = () => {
       <h2>{t('signupTitle')}</h2>
       <p>{t('signupIntro')}</p>
 
-      <div className="video-box">
-        <video ref={videoRef} width="360" height="270" autoPlay muted className="camera-video" />
-      </div>
-
-      <div className="button-row">
-        <button onClick={startCamera} type="button">{t('startCamera')}</button>
-        <button onClick={captureFace} type="button" disabled={!isCameraOn || !modelsLoaded}>{t('captureFace')}</button>
-      </div>
-
-      <form className="form-card" onSubmit={handleSubmit}>
-        <label>
-          {t('username')}
-          <input value={username} onChange={(event) => setUsername(event.target.value)} required />
-        </label>
-        <label>
-          {t('email')}
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
-        </label>
-        <div className="button-row">
-          <button onClick={handleSendOtp} type="button" disabled={otpSending}>{otpSending ? t('sending') : t('sendVerificationCode')}</button>
-        </div>
-        <label>
-          {t('verificationCode')}
-          <input value={otp} onChange={(event) => setOtp(event.target.value)} required />
-        </label>
-        <label>
-          {t('password')}
-          <input
-            type="password"
-            minLength="12"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
-        </label>
-        <CaptchaField
-          answer={captchaAnswer}
-          onAnswer={setCaptchaAnswer}
-          onChallenge={setCaptchaId}
-          refreshKey={captchaRefreshKey}
-        />
-        <button type="submit" disabled={loading}>{loading ? t('signingUp') : t('signup')}</button>
-      </form>
-
       <div className="status-box">
         <strong>{t('status')}</strong>
-        <p>{td(message)}</p>
+        <p style={{ whiteSpace: 'pre-line' }}>{td(message)}</p>
+        <p>Face Enrollment Progress: {faceDescriptors.length}/3</p>
       </div>
+
+      <div className="signup-layout">
+        <div className="signup-main">
+          <div className="video-box">
+            <video
+  ref={videoRef}
+  width="500"
+  height="270"
+  autoPlay
+  muted
+  className="camera-video"
+/>
+          </div>
+
+          <div className="button-row">
+            <button onClick={startCamera} type="button">
+              {t('startCamera')}
+            </button>
+            <button
+              onClick={captureFace}
+              type="button"
+              disabled={!isCameraOn || !modelsLoaded || captureStep >= 3}
+            >
+              {captureStep >= 3 ? 'Face Enrollment Complete' : `Capture Face (${captureStep + 1}/3)`}
+            </button>
+          </div>
+
+          
+        </div>{/* end signup-main */}
+
+        <div className="signup-sidebar">
+          <div className="tips-card">
+            <h3>Face Capture Tips</h3>
+            <h4>✓ DO's</h4>
+            <ul>
+              <li>Ensure good lighting.</li>
+              <li>Keep your face centered.</li>
+              <li>Remove sunglasses or masks.</li>
+              <li>Follow the angle instructions.</li>
+            </ul>
+            <h4>✗ DON'Ts</h4>
+            <ul>
+              <li>Don't use poor lighting.</li>
+              <li>Don't move during capture.</li>
+              <li>Don't cover your face.</li>
+              <li>Don't enroll another person's face.</li>
+            </ul>
+          </div>
+        </div>{/* end signup-sidebar */}
+      </div>{/* end signup-layout */}
+<form className="form-card" onSubmit={handleSubmit}>
+            <label>
+              {t('username')}
+              <input value={username} onChange={(event) => setUsername(event.target.value)} required />
+            </label>
+            <label>
+              {t('email')}
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
+            </label>
+            <div className="button-row">
+              <button onClick={handleSendOtp} type="button" disabled={otpSending}>
+                {otpSending ? t('sending') : t('sendVerificationCode')}
+              </button>
+            </div>
+            <label>
+              {t('verificationCode')}
+              <input value={otp} onChange={(event) => setOtp(event.target.value)} required />
+            </label>
+            <label>
+              {t('password')}
+              <input
+                type="password"
+                minLength="12"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+            </label>
+            <CaptchaField
+              answer={captchaAnswer}
+              onAnswer={setCaptchaAnswer}
+              onChallenge={setCaptchaId}
+              refreshKey={captchaRefreshKey}
+            />
+            <button type="submit" disabled={loading}>
+              {loading ? t('signingUp') : t('signup')}
+            </button>
+          </form>
     </div>
   );
 };
