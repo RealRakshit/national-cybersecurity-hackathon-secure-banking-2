@@ -4,6 +4,11 @@ import { login } from '../api/auth';
 import { getFaceDescriptor, loadFaceModels } from '../face/faceUtils';
 import { useLanguage } from '../i18n';
 import CaptchaField from './CaptchaField';
+import {
+  initializeHands,
+  detectThreeFingers,
+  getHands,
+} from '../face/handLiveness';
 
 const Login = () => {
   const { t, td } = useLanguage();
@@ -20,6 +25,15 @@ const Login = () => {
   const [captchaRefreshKey, setCaptchaRefreshKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [challengePassed, setChallengePassed] = useState(false);
+  const [challenge, setChallenge] = useState('');
+
+  const generateChallenge = () => {
+    const challenges = ['SHOW_THREE'];
+    const selected = challenges[Math.floor(Math.random() * challenges.length)];
+    setChallenge(selected);
+    return selected;
+  };
 
   const resetTypingSession = () => {
     typingSessionRef.current = {
@@ -38,24 +52,50 @@ const Login = () => {
 
   useEffect(() => {
     loadFaceModels()
-      .then(() => {
+      .then(async () => {
+        await initializeHands();
         setModelsLoaded(true);
-        setMessage('Face models loaded. Start camera and capture your face.');
+        setMessage('Face models loaded. Start camera to begin liveness verification.');
       })
-      .catch(() => setMessage('Failed to load face models. Refresh to retry.'));
+      .catch(() =>
+        setMessage('Failed to load biometric models. Refresh to retry.'),
+      );
   }, []);
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
       }
       setIsCameraOn(true);
-      setMessage('Camera started. Please position your face clearly.');
+      generateChallenge();
+      setMessage('Camera started.\nLiveness challenge: Show 3 fingers.');
     } catch (error) {
       setMessage('Unable to open camera. Allow camera access and try again.');
+    }
+  };
+
+  const verifyChallenge = async () => {
+    try {
+      const hands = getHands();
+      hands.onResults((results) => {
+        if (
+          challenge === 'SHOW_THREE' &&
+          detectThreeFingers(results.multiHandLandmarks)
+        ) {
+          setChallengePassed(true);
+          setMessage('✓ Liveness challenge passed.\nYou may now capture your face.');
+        }
+      });
+      await hands.send({ image: videoRef.current });
+    } catch (error) {
+      console.error(error);
+      setMessage('Unable to verify liveness challenge.');
     }
   };
 
@@ -64,7 +104,6 @@ const Login = () => {
       setMessage('Face models are still loading. Please wait.');
       return;
     }
-
     try {
       setMessage('Detecting face...');
       const descriptor = await getFaceDescriptor(videoRef.current);
@@ -75,7 +114,9 @@ const Login = () => {
     }
   };
 
-  const average = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
+  const average = (values) =>
+    values.reduce((sum, value) => sum + value, 0) / values.length;
+
   const isTrackedTypingKey = (key) => key.length === 1 || key === 'Backspace';
 
   const handlePasswordKeyDown = (event) => {
@@ -87,7 +128,6 @@ const Login = () => {
     session.previousKeyDownAt = now;
     session.lastKeyAt = now;
     session.heldKeys.set(event.code, now);
-
     if (event.key === 'Backspace') {
       session.backspaceCount += 1;
       return;
@@ -107,11 +147,17 @@ const Login = () => {
 
   const buildTypingProfile = () => {
     const session = typingSessionRef.current;
+    console.log({
+      printableKeyCount: session.printableKeyCount,
+      startedAt: session.startedAt,
+      holdTimes: session.holdTimes,
+      keyDelays: session.keyDelays,
+    });
     if (
-      session.printableKeyCount < 2
-      || !session.startedAt
-      || session.holdTimes.length === 0
-      || session.keyDelays.length === 0
+      session.printableKeyCount < 2 ||
+      !session.startedAt ||
+      session.holdTimes.length === 0 ||
+      session.keyDelays.length === 0
     ) return null;
 
     const typingDurationMs = Math.max(session.lastKeyAt - session.startedAt, 250);
@@ -129,7 +175,6 @@ const Login = () => {
       setMessage('Please capture your face before logging in.');
       return;
     }
-
     try {
       setLoading(true);
       const { data } = await login({
@@ -140,7 +185,13 @@ const Login = () => {
         captchaId,
         captchaAnswer,
       });
-      setMessage(data.message);
+      if (data.faceVerification?.matched) {
+        setMessage(
+          `${data.message}\nIdentity verified.\nConfidence: ${data.faceVerification.confidence}%`
+        );
+      } else {
+        setMessage(data.message);
+      }
       navigate('/dashboard');
     } catch (error) {
       setMessage(error.response?.data?.message || 'Login failed.');
@@ -151,53 +202,145 @@ const Login = () => {
   };
 
   return (
-    <div className="page-card">
-      <h2>{t('loginTitle')}</h2>
-      <p>{t('loginIntro')}</p>
+  <div className="page-card">
+    <h2>{t('loginTitle')}</h2>
+    <p>{t('loginIntro')}</p>
 
-      <div className="video-box">
-        <video ref={videoRef} width="360" height="270" autoPlay muted className="camera-video" />
-      </div>
+    <div className="status-box">
+      <strong>{t('status')}</strong>
 
-      <div className="button-row">
-        <button onClick={startCamera} type="button">{t('startCamera')}</button>
-        <button onClick={captureFace} type="button" disabled={!isCameraOn || !modelsLoaded}>{t('captureFace')}</button>
-      </div>
+      <p style={{ whiteSpace: 'pre-line' }}>
+        {td(message)}
+      </p>
 
-      <form className="form-card" onSubmit={handleSubmit}>
-        <label>
-          {t('username')}
-          <input value={username} onChange={(event) => setUsername(event.target.value)} required />
-        </label>
-        <label>
-          {t('password')}
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            onKeyDown={handlePasswordKeyDown}
-            onKeyUp={handlePasswordKeyUp}
-            onFocus={() => {
-              if (!password) resetTypingSession();
-            }}
-            required
-          />
-        </label>
-        <CaptchaField
-          answer={captchaAnswer}
-          onAnswer={setCaptchaAnswer}
-          onChallenge={setCaptchaId}
-          refreshKey={captchaRefreshKey}
-        />
-        <button type="submit" disabled={loading}>{loading ? t('loggingIn') : t('login')}</button>
-      </form>
+      <div className="security-timeline">
+        <div className={`timeline-item ${isCameraOn ? 'completed' : ''}`}>
+          {isCameraOn ? '✓' : '○'} Camera Started
+        </div>
 
-      <div className="status-box">
-        <strong>{t('status')}</strong>
-        <p>{td(message)}</p>
+        <div className={`timeline-item ${challengePassed ? 'completed' : ''}`}>
+          {challengePassed ? '✓' : '○'} Liveness Verified
+        </div>
+
+        <div className={`timeline-item ${faceDescriptor ? 'completed' : ''}`}>
+          {faceDescriptor ? '✓' : '○'} Face Captured
+        </div>
+
+        <div
+          className={`timeline-item ${
+            username && password ? 'completed' : ''
+          }`}
+        >
+          {username && password ? '✓' : '○'} Credentials Entered
+        </div>
+
+        <div className={`timeline-item ${loading ? 'active' : ''}`}>
+          {loading ? '⏳' : '○'} Authentication Complete
+        </div>
       </div>
     </div>
-  );
+
+    <div className="login-layout">
+       <div className="camera-section">
+
+  <div className="video-box">
+    <video
+      ref={videoRef}
+      width="450"
+      height="270"
+      autoPlay
+      muted
+      className="camera-video"
+    />
+  </div>
+
+  <div className="button-row login-camera-buttons">
+    <button onClick={startCamera} type="button">
+      {t('startCamera')}
+    </button>
+
+    <button
+      onClick={verifyChallenge}
+      type="button"
+      disabled={!isCameraOn || challengePassed}
+    >
+      Verify Liveness
+    </button>
+
+    <button
+      onClick={captureFace}
+      type="button"
+      disabled={
+        !isCameraOn ||
+        !modelsLoaded ||
+        !challengePassed
+      }
+    >
+      {t('captureFace')}
+    </button>
+
+  </div>
+
+</div>
+
+      <div className="login-form-wrapper">
+        <form
+          className="form-card login-form"
+          onSubmit={handleSubmit}
+        >
+          <label>
+            {t('username')}
+
+            <input
+              value={username}
+              onChange={(event) =>
+                setUsername(event.target.value)
+              }
+              required
+            />
+          </label>
+
+          <label>
+            {t('password')}
+
+            <input
+              type="password"
+              value={password}
+              onChange={(event) =>
+                setPassword(event.target.value)
+              }
+              onKeyDown={handlePasswordKeyDown}
+              onKeyUp={handlePasswordKeyUp}
+              onFocus={() => {
+                if (!password) {
+                  resetTypingSession();
+                }
+              }}
+              required
+            />
+          </label>
+
+          <CaptchaField
+            answer={captchaAnswer}
+            onAnswer={setCaptchaAnswer}
+            onChallenge={setCaptchaId}
+            refreshKey={captchaRefreshKey}
+          />
+
+          <button
+            type="submit"
+            disabled={loading}
+          >
+            {loading
+              ? t('loggingIn')
+              : t('login')}
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+);
 };
 
 export default Login;

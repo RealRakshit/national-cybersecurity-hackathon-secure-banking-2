@@ -4,7 +4,21 @@ const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true, trim: true },
   email: { type: String, required: true, unique: true, trim: true, lowercase: true },
   password: { type: String, required: true },
-  faceDescriptor: { type: [Number], required: true },
+  faceDescriptors: {
+  type: [[Number]],
+  required: true,
+  validate: {
+    validator: (value) => (
+      Array.isArray(value)
+      && value.length >= 3
+      && value.every(
+        (descriptor) => Array.isArray(descriptor)
+          && descriptor.length === 128,
+      )
+    ),
+    message: 'At least 3 valid face descriptors are required.',
+  },
+},
   balanceCents: { type: Number, default: 0, min: 0 },
   loginIps: {
     type: [{
